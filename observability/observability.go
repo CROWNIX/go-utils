@@ -1,0 +1,128 @@
+package observability
+
+import (
+	"context"
+	"log/slog"
+	"time"
+
+	"github.com/CROWNIX/go-utils/observability/loghook"
+	"github.com/CROWNIX/go-utils/observability/otelx"
+	"github.com/segmentio/kafka-go"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/sdk/metric"
+)
+
+// OptionParams defines the configuration for setting up OpenTelemetry observability.
+type OptionParams struct {
+	ServiceName  string // The name of the service used for tracing.
+	Env          string // The environment (e.g., "development", "staging", "production").
+	OtlpEndpoint string // The OTLP exporter endpoint.
+	OtlpUsername string // The username for OTLP authentication.
+	OtlpPassword string // The password for OTLP authentication.
+}
+
+// NewObservabilityOtel initializes OpenTelemetry tracing and returns a tracer and cleanup function.
+//
+// It returns:
+//   - trace.Tracer: the tracer instance to be used for creating spans.
+//   - func(): a cleanup function that should be called before shutdown.
+//   - error: if initialization fails.
+func NewObservabilityOtel(params OptionParams) (func(), error) {
+	closeFuncTrace, err := otelx.NewTrace().
+		WithGlobalTraceProvider().
+		WithExporterGrpcBasicAuth(
+			context.Background(),
+			params.OtlpUsername,
+			params.OtlpPassword,
+			params.OtlpEndpoint,
+			otlptracegrpc.WithInsecure(),
+		).
+		Init(context.Background(), params.ServiceName)
+	if err != nil {
+		return nil, err
+	}
+
+	closeFuncMetric, err := otelx.NewMetric().
+		WithGlobalMetricProvider().
+		WithExporterGrpcBasicAuth(
+			context.Background(),
+			params.OtlpUsername,
+			params.OtlpPassword,
+			params.OtlpEndpoint,
+			otlpmetricgrpc.WithInsecure(),
+		).
+		WithPeriodicReader(
+			metric.WithInterval(3*time.Second),
+		).
+		Init(context.Background(), params.ServiceName)
+
+	return func() {
+		closeFuncTrace()
+		closeFuncMetric()
+	}, err
+}
+
+// LogWithKafkaHookOptions contains configuration for setting up logging with a Kafka sink.
+type LogWithKafkaHookOptions struct {
+	KafkaAddrs  []string         // List of Kafka broker addresses.
+	Transport   *kafka.Transport // Optional custom transport (e.g., with TLS, SASL).
+	Topic       string           // Kafka topic to write logs to.
+	Env         string           // The environment (e.g., "production", "development").
+	ServiceName string           // The name of the service emitting logs.
+	LogMode     string           // Log output format: "text" or "json".
+	LogLevel    string           // Minimum log level: "info", "debug", etc.
+	OnlySink    bool             // If true, logs are only sent to the sink and not printed to terminal.
+}
+
+// NewLogWithKafkaHook sets up structured logging using slog with a Kafka writer as the hook.
+// It returns a cleanup function that should be deferred or called on shutdown to close the Kafka writer.
+func NewLogWithKafkaHook(optionsParams LogWithKafkaHookOptions) func() {
+	w := &kafka.Writer{
+		Addr:            kafka.TCP(optionsParams.KafkaAddrs...),
+		Topic:           optionsParams.Topic,
+		Balancer:        &kafka.LeastBytes{},
+		MaxAttempts:     5,
+		WriteBackoffMin: time.Duration(100 * time.Millisecond),
+		WriteBackoffMax: time.Duration(1 * time.Second),
+
+		BatchSize:    10,
+		BatchBytes:   1048576,
+		BatchTimeout: time.Duration(3 * time.Second),
+
+		RequiredAcks: kafka.RequireOne,
+		Transport:    optionsParams.Transport,
+	}
+	NewLog(LogConfig{
+		ZerologHook: &loghook.KafkaHook{
+			Writer:      w,
+			Topic:       optionsParams.Topic,
+			Env:         optionsParams.Env,
+			ServiceName: optionsParams.ServiceName,
+			OnlySink:    optionsParams.OnlySink,
+		},
+		Mode:        optionsParams.LogMode,
+		Level:       optionsParams.LogLevel,
+		Env:         optionsParams.Env,
+		ServiceName: optionsParams.ServiceName,
+	})
+
+	return func() {
+		slog.Info("shutting down kafka writer...",
+			slog.String("topic", optionsParams.Topic),
+			slog.String("env", optionsParams.Env),
+			slog.String("service", optionsParams.ServiceName),
+		)
+
+		if err := w.Close(); err != nil {
+			slog.Error("failed to close kafka writer",
+				slog.String("topic", optionsParams.Topic),
+				slog.Any("error", err),
+			)
+		} else {
+			slog.Info("kafka writer closed successfully",
+				slog.String("topic", optionsParams.Topic),
+			)
+		}
+	}
+}

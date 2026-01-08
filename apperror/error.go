@@ -77,6 +77,10 @@ func Forbidden(msg string, opts ...Option) error {
 	return New(CodeForbidden, msg, opts...)
 }
 
+func InternalServer(msg string, opts ...Option) error{
+	return New(CodeUnknown, msg, opts...)
+}
+
 // Predicates
 func hasCode(err error, code Code) bool {
 	var svcErr *Error

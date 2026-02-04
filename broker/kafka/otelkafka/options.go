@@ -1,4 +1,4 @@
-package otelkafkax
+package otelkafka
 
 import (
 	"go.opentelemetry.io/otel/attribute"

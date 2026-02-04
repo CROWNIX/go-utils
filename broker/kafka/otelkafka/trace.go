@@ -1,4 +1,4 @@
-package otelkafkax
+package otelkafka
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/CROWNIX/go-utils/broker/kafkax"
+	util_kafka "github.com/CROWNIX/go-utils/broker/kafka"
 	"github.com/segmentio/kafka-go"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -45,7 +45,7 @@ func (r *opentelemetry) TracePubStart(ctx context.Context, msg *kafka.Message) c
 
 // TracePubEnd ends the span started for publishing a Kafka message.
 // It records error details if provided.
-func (r *opentelemetry) TracePubEnd(ctx context.Context, input kafkax.PubOutput, err error) {
+func (r *opentelemetry) TracePubEnd(ctx context.Context, input util_kafka.PubOutput, err error) {
 	span := trace.SpanFromContext(ctx)
 	if !span.IsRecording() {
 		return
@@ -136,8 +136,8 @@ func (r *opentelemetry) TraceConsumeEnd(ctx context.Context, err error) {
 
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
-		if errors.Is(err, kafkax.ErrJsonUnmarshal) {
-			span.SetAttributes(semconv.ErrorTypeKey.String(kafkax.ErrJsonUnmarshal.Error()))
+		if errors.Is(err, util_kafka.ErrJsonUnmarshal) {
+			span.SetAttributes(semconv.ErrorTypeKey.String(util_kafka.ErrJsonUnmarshal.Error()))
 		}
 	}
 	span.End()

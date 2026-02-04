@@ -1,4 +1,4 @@
-package otelkafkax
+package otelkafka
 
 import (
 	"runtime/debug"

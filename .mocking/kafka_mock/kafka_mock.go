@@ -6,8 +6,8 @@
 //	mockgen -destination=../../.mocking/kafkax_mock/kafkax_mock.go -package=kafkax_mock . TracerPub,TracerConsume,TracerCommitMessage,PubSub
 //
 
-// Package kafkax_mock is a generated GoMock package.
-package kafkax_mock
+// package kafka_mock is a generated GoMock package.
+package kafka_mock
 
 import (
 	context "context"

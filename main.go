@@ -7,5 +7,5 @@ import (
 )
 
 func main() {
-	fmt.Println(apperror.InternalServerError("Internal Server Error"))
+	fmt.Println(apperror.InternalServer("Internal Server Error"))
 }

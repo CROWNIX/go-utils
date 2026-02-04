@@ -1,6 +1,6 @@
 //go:generate go tool mockgen -destination=../../.mocking/kafkax_mock/kafkax_mock.go -package=kafkax_mock . TracerPub,TracerConsume,TracerCommitMessage,PubSub
 
-package kafkax
+package kafka
 
 import (
 	"context"

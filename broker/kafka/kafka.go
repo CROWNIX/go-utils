@@ -39,6 +39,7 @@ var _ PubSub = (*broker)(nil)
 //   - KafkaBroker: initialized broker instance
 func New(opts ...Options) *broker {
 	b := &broker{
+		writers: make(map[string]*kafka.Writer),
 		readers: make([]*Reader, 0),
 	}
 	for _, option := range opts {

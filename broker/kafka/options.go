@@ -16,17 +16,14 @@ type Options func(cfg *broker)
 //   - topic: the Kafka topic to which messages will be written
 //
 // The writer will use the LeastBytes balancer strategy to distribute messages.
-func Writer(key string, brokers []string, topic string) Options {
+func Writer(key string, brokers []string) Options {
 	return func(cfg *broker) {
 		if len(brokers) == 0 {
 			panic("kafka writer: no brokers provided")
 		}
-		if topic == "" {
-			panic("kafka writer: topic cannot be empty")
-		}
+		
 		cfg.writers[key] = &kafka.Writer{
 			Addr:     kafka.TCP(brokers...),
-			Topic:    topic,
 			Balancer: &kafka.LeastBytes{},
 		}
 	}

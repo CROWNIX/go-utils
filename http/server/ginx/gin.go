@@ -21,6 +21,7 @@ type GinConfig struct {
 	BlacklistRouteLogResponse map[string]struct{} // Routes that should not log response body
 	SensitiveFields           map[string]struct{} // Fields that should be redacted from logs
 	CorsConf                  CorsConfig          // CORS configuration
+	UseCors				   	  bool                 // Whether to enable CORS middleware
 	AppName                   string              // Application name for OpenTelemetry tracing
 	UseOtel                   bool
 }
@@ -41,7 +42,10 @@ func NewGin(conf GinConfig) *gin.Engine {
 	binding.Validator = ginValidator
 
 	router.Use(gin.Recovery())
-	router.Use(cors(conf.CorsConf))
+
+	if conf.UseCors {
+		router.Use(cors(conf.CorsConf))
+	}
 	if conf.UseOtel {
 		router.Use(otelgin.Middleware(conf.AppName))
 	}
